@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useDevHelper } from '@/hooks/useDevHelper';
-import { DevHelperWidget } from '@/components/DevHelperWidget';
 import { ErrorTester } from '@/components/ErrorTester';
 import { Copy, Check } from 'lucide-react';
 
@@ -15,7 +14,8 @@ export default function Home() {
     setBaseUrl(window.location.origin);
   }, []);
 
-  const { errors, clearErrors, downloadReport, analyzeWithAI, analyzeError } = useDevHelper({
+  // Підключаємо DevHelper скрипт
+  useDevHelper({
     apiKey: 'demo-key',
     projectId: 'devhelper-demo',
     devMode: true,
@@ -159,14 +159,6 @@ export default function Home() {
           </div>
         </div>
       </div>
-
-      <DevHelperWidget
-        errors={errors}
-        onClear={clearErrors}
-        onDownloadReport={downloadReport}
-        onAnalyzeWithAI={analyzeWithAI}
-        onAnalyzeError={analyzeError}
-      />
     </main>
   );
 }
