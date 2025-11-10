@@ -27,12 +27,14 @@ export function analyzeZipProject(zipData) {
           const functionAnalysis = analyzeFunctions(jsFiles);
           const variableAnalysis = analyzeVariables(jsFiles);
           const imageAnalysis = analyzeImages(imageFiles, jsFiles, cssFiles);
+          const duplicateFunctions = findDuplicateFunctions(jsFiles);
 
           resolve({
             unusedCSS: cssAnalysis.unused,
             unusedFunctions: functionAnalysis.unused,
             unusedVariables: variableAnalysis.unused,
             unusedImages: imageAnalysis.unused,
+            duplicateFunctions: duplicateFunctions,
             stats: {
               cssFilesAnalyzed: cssFiles.length,
               jsFilesAnalyzed: jsFiles.length,
@@ -478,6 +480,126 @@ function analyzeImages(imageFiles, jsFiles, cssFiles) {
 
   console.log("🖼️ Unused", unused.length, "images");
   return { total: allImages.length, unused: unused };
+}
+
+function findDuplicateFunctions(jsFiles) {
+  const functionData = {};
+
+  jsFiles.forEach(function (file) {
+    const content = file.content;
+    const lines = content.split("\n");
+
+    // Знаходимо функції з їх тілом
+    lines.forEach(function (line, index) {
+      // Пропускаємо змінні з new (const cookies = new Cookies())
+      if (line.match(/(?:const|let|var)\s+\w+\s*=\s*new\s+/)) {
+        return;
+      }
+
+      // Пропускаємо виклики методів (cookies.get())
+      if (line.match(/(?:const|let|var)\s+\w+\s*=\s*\w+\.\w+\(/)) {
+        return;
+      }
+
+      // Знаходимо оголошення функцій
+      const funcMatch = line.match(
+        /(?:function\s+|export\s+function\s+)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/
+      );
+      const arrowMatch = line.match(
+        /(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s+)?\([^)]*\)\s*=>/
+      );
+
+      const funcName = funcMatch
+        ? funcMatch[1]
+        : arrowMatch
+          ? arrowMatch[1]
+          : null;
+
+      if (funcName) {
+        // Витягуємо тіло функції (наступні 5 рядків для порівняння)
+        const bodyLines = lines.slice(index + 1, index + 6).join("\n");
+        const normalizedBody = bodyLines
+          .replace(/\s+/g, " ")
+          .replace(/\/\/.*/g, "")
+          .trim()
+          .substring(0, 100);
+
+        if (!functionData[funcName]) {
+          functionData[funcName] = [];
+        }
+
+        functionData[funcName].push({
+          file: file.name,
+          body: normalizedBody,
+        });
+      }
+    });
+  });
+
+  const duplicates = [];
+
+  Object.keys(functionData).forEach(function (funcName) {
+    const occurrences = functionData[funcName];
+
+    if (occurrences.length > 1) {
+      const uniqueFiles = {};
+
+      occurrences.forEach(function (occ) {
+        if (!uniqueFiles[occ.file]) {
+          uniqueFiles[occ.file] = occ.body;
+        }
+      });
+
+      const fileNames = Object.keys(uniqueFiles);
+
+      if (fileNames.length > 1) {
+        // Перевіряємо чи тіла функцій схожі
+        const bodies = Object.values(uniqueFiles);
+        const firstBody = bodies[0];
+        let allSimilar = true;
+
+        for (let i = 1; i < bodies.length; i++) {
+          const similarity = calculateSimilarity(firstBody, bodies[i]);
+          if (similarity < 0.7) {
+            allSimilar = false;
+            break;
+          }
+        }
+
+        duplicates.push({
+          name: funcName,
+          count: fileNames.length,
+          locations: fileNames,
+          similar: allSimilar,
+        });
+      }
+    }
+  });
+
+  console.log("🔄 Found", duplicates.length, "duplicate function names");
+  return duplicates;
+}
+
+function calculateSimilarity(str1, str2) {
+  if (!str1 || !str2) return 0;
+  if (str1 === str2) return 1;
+
+  const len1 = str1.length;
+  const len2 = str2.length;
+  const maxLen = Math.max(len1, len2);
+
+  if (maxLen === 0) return 1;
+
+  let matches = 0;
+  const minLen = Math.min(len1, len2);
+
+  for (let i = 0; i < minLen; i++) {
+    if (str1[i] === str2[i]) {
+      matches++;
+    }
+  }
+
+  return matches / maxLen;
 }
 
 async function extractZipFiles(view) {
