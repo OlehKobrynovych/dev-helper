@@ -15,24 +15,31 @@ export function analyzeZipProject(zipData) {
           const jsFiles = files.filter((f) =>
             f.name.match(/\.(js|jsx|ts|tsx)$/)
           );
+          const imageFiles = files.filter((f) =>
+            f.name.match(/\.(jpg|jpeg|png|gif|webp|svg|ico)$/i)
+          );
 
           console.log("🎨 CSS/SCSS files:", cssFiles.length);
           console.log("⚡ JS files:", jsFiles.length);
+          console.log("🖼️ Image files:", imageFiles.length);
 
           const cssAnalysis = analyzeCSSClasses(cssFiles, jsFiles);
           const functionAnalysis = analyzeFunctions(jsFiles);
           const variableAnalysis = analyzeVariables(jsFiles);
+          const imageAnalysis = analyzeImages(imageFiles, jsFiles, cssFiles);
 
           resolve({
             unusedCSS: cssAnalysis.unused,
             unusedFunctions: functionAnalysis.unused,
             unusedVariables: variableAnalysis.unused,
+            unusedImages: imageAnalysis.unused,
             stats: {
               cssFilesAnalyzed: cssFiles.length,
               jsFilesAnalyzed: jsFiles.length,
               totalCSSClasses: cssAnalysis.total,
               totalFunctions: functionAnalysis.total,
               totalVariables: variableAnalysis.total,
+              totalImages: imageAnalysis.total,
             },
           });
         })
@@ -441,6 +448,36 @@ function analyzeVariables(jsFiles) {
 
   console.log("📦 Unused", unused.length, "variables");
   return { total: allVariables.size, unused: unused };
+}
+
+function analyzeImages(imageFiles, jsFiles, cssFiles) {
+  const allImages = [];
+  const usedImages = new Set();
+
+  imageFiles.forEach(function (file) {
+    const fileName = file.name.split("/").pop();
+    allImages.push({ name: fileName, path: file.name });
+  });
+
+  console.log("🖼️ Found", allImages.length, "images");
+
+  const allContent = jsFiles
+    .concat(cssFiles)
+    .map((f) => f.content)
+    .join(" ");
+
+  allImages.forEach(function (img) {
+    if (allContent.includes(img.name)) {
+      usedImages.add(img.name);
+    }
+  });
+
+  console.log("🖼️ Used", usedImages.size, "images");
+
+  const unused = allImages.filter((img) => !usedImages.has(img.name));
+
+  console.log("🖼️ Unused", unused.length, "images");
+  return { total: allImages.length, unused: unused };
 }
 
 async function extractZipFiles(view) {

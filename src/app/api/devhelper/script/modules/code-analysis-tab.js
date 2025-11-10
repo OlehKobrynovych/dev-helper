@@ -70,6 +70,7 @@ function analyzeProjectFiles(zipData, resultsDiv, uploadBtn) {
         results.unusedCSS,
         results.unusedFunctions,
         results.unusedVariables,
+        results.unusedImages || [],
         results.stats,
         resultsDiv
       );
@@ -98,11 +99,14 @@ function displayResults(
   unusedCSS,
   unusedFunctions,
   unusedVariables,
+  unusedImages,
   stats,
   resultsDiv
 ) {
+  unusedImages = unusedImages || [];
+
   let html =
-    '<div style="border:1px solid #e9d5ff;border-radius:8px;padding:16px;background:linear-gradient(to right, #faf5ff, #fce7f3);margin-bottom:16px;">';
+    '<div style="border:1px solid #e9d5ff;border-radius:8px;padding:16px;background:#faf5ff;margin-bottom:16px;">';
   html +=
     '<h3 style="margin:0 0 12px 0;font-size:16px;font-weight:bold;">📊 Результати аналізу проекту</h3>';
 
@@ -301,6 +305,33 @@ function displayResults(
         "</span>";
       html += "</div>";
     });
+    html += "</div></div>";
+  }
+
+  // Невикористані зображення
+  if (unusedImages.length > 0) {
+    html +=
+      '<div style="border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin-bottom:16px;">';
+    html +=
+      '<h3 style="margin:0 0 12px 0;font-size:14px;font-weight:bold;color:#ec4899;">🖼️ Невикористані зображення (' +
+      unusedImages.length +
+      ")</h3>";
+    html += '<div style="max-height:200px;overflow-y:auto;">';
+
+    unusedImages.forEach(function (image) {
+      html +=
+        '<div style="padding:8px;background:#fce7f3;border-radius:4px;margin-bottom:8px;font-size:11px;">';
+      html +=
+        '<div style="font-weight:bold;color:#9f1239;margin-bottom:4px;">' +
+        image.name +
+        "</div>";
+      html +=
+        '<div style="color:#6b7280;font-size:10px;">📄 ' +
+        image.path +
+        "</div>";
+      html += "</div>";
+    });
+
     html += "</div></div>";
   }
 
