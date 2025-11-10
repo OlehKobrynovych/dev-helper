@@ -1,0 +1,15 @@
+FROM node:18-alpine
+
+WORKDIR /app-frontend
+
+# Копіюємо package.json та yarn.lock для встановлення залежностей
+COPY package.json yarn.lock ./
+
+# Встановлюємо залежності
+RUN yarn install
+
+# Відкриваємо порт для dev сервера
+EXPOSE 3000
+
+# Запускаємо dev сервер з turbopack
+CMD ["yarn", "dev"]
