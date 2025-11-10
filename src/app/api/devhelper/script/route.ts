@@ -100,7 +100,8 @@ export async function GET() {
         return;
       }
 
-      const baseUrl = '${baseUrl}';
+      // Використовуємо baseUrl з конфігу або поточний origin
+      const baseUrl = config.baseUrl || window.location.origin;
       
       // Ініціалізуємо core
       const core = createDevHelperCore(config, baseUrl);

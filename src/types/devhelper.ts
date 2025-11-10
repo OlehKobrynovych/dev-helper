@@ -4,6 +4,7 @@ export interface DevHelperConfig {
   devMode?: boolean;
   autoReport?: boolean;
   reportEndpoint?: string;
+  baseUrl?: string;
 }
 
 export interface ConsoleError {

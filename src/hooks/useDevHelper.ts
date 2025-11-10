@@ -21,7 +21,11 @@ export function useDevHelper(config: DevHelperConfig) {
     script.onload = () => {
       // Ініціалізуємо DevHelper після завантаження скрипта
       if (window.DevHelper) {
-        window.DevHelper.init(config);
+        // Додаємо baseUrl з поточного origin
+        window.DevHelper.init({
+          ...config,
+          baseUrl: window.location.origin,
+        });
       }
     };
 
