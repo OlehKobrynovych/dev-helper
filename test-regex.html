@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test useState Regex</title>
+</head>
+<body>
+    <h1>Test Regex</h1>
+    <pre id="output"></pre>
+
+    <script>
+        const testCode = `
+const [errorMessage, setErrorMessage] = useState("");
+const [count, setCount] = useState(0);
+const test1 = [];
+        `;
+
+        const output = document.getElementById('output');
+        let result = '';
+
+        // Test useState regex
+        const stateMatches = testCode.matchAll(/const\s*\[\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*,\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\]\s*=\s*useState/g);
+        
+        result += 'useState matches:\n';
+        for (const match of stateMatches) {
+            result += `  State: ${match[1]}, Setter: ${match[2]}\n`;
+        }
+
+        // Test simple var
+        const simpleVarMatches = testCode.matchAll(/(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=/g);
+        
+        result += '\nAll variables:\n';
+        for (const match of simpleVarMatches) {
+            result += `  ${match[1]}\n`;
+        }
+
+        // Test React component usage
+        const jsxCode = `
+function MyComponent() {
+  return <VbAcademy />;
+}
+        `;
+
+        const componentMatches = jsxCode.matchAll(/<([A-Z][a-zA-Z0-9_$]*)\s*(?:\/?>|\s)/g);
+        
+        result += '\nReact components used:\n';
+        for (const match of componentMatches) {
+            result += `  ${match[1]}\n`;
+        }
+
+        output.textContent = result;
+    </script>
+</body>
+</html>

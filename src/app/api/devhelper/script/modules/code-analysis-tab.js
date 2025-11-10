@@ -264,12 +264,29 @@ function displayResults(
 
     html += '<div style="max-height:200px;overflow-y:auto;">';
     unusedVariables.forEach(function (variable) {
+      const typeLabels = {
+        simple: "змінна",
+        useState: "state",
+        "useState-setter": "setState",
+        "array-destruct": "деструктуризація []",
+        "object-destruct": "деструктуризація {}",
+        "export-const": "export const",
+      };
+      const typeLabel = typeLabels[variable.type] || variable.type;
+
       html +=
-        '<div style="padding:8px;background:#fef3c7;border-radius:4px;margin-bottom:8px;font-size:11px;display:flex;justify-content:space-between;align-items:center;">';
+        '<div style="padding:8px;background:#fef3c7;border-radius:4px;margin-bottom:8px;font-size:11px;">';
+      html +=
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">';
       html +=
         '<code style="font-family:monospace;color:#92400e;font-weight:bold;">' +
         variable.name +
         "</code>";
+      html +=
+        '<span style="font-size:9px;background:#fbbf24;color:#78350f;padding:2px 6px;border-radius:3px;">' +
+        typeLabel +
+        "</span>";
+      html += "</div>";
       html +=
         '<span style="color:#6b7280;font-size:10px;">📄 ' +
         variable.location +
