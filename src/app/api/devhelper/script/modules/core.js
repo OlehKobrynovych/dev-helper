@@ -160,7 +160,7 @@ export function createDevHelperCore(config, baseUrl) {
     }
 
     const errorToAnalyze = errors[errorIndex];
-    const button = event.target;
+    const button = window.event.target;
     button.disabled = true;
     button.textContent = "⏳ Аналіз...";
 
@@ -179,12 +179,10 @@ export function createDevHelperCore(config, baseUrl) {
       .then(function (data) {
         if (data.success && data.analyzedErrors && data.analyzedErrors[0]) {
           errors[errorIndex] = data.analyzedErrors[0];
-          document
-            .querySelectorAll('[style*="position:fixed"][style*="inset:0"]')
-            .forEach(function (el) {
-              el.remove();
-            });
-          window.DevHelperShowModal();
+          // Використовуємо глобальну функцію оновлення модалки
+          if (window.DevHelperUpdateModal) {
+            window.DevHelperUpdateModal();
+          }
         }
       })
       .catch(function (error) {

@@ -9,13 +9,12 @@ import { renderTestingTab } from "./testing-tab.js";
 
 export function createModal(core, baseUrl, config) {
   let currentTab = "errors";
+  let currentModal = null;
 
   function updateModalContent() {
-    const existingModal = document.querySelector(
-      '[style*="position:fixed"][style*="inset:0"]'
-    );
-    if (existingModal) {
-      existingModal.remove();
+    if (currentModal) {
+      currentModal.remove();
+      currentModal = null;
     }
     showModal();
   }
@@ -25,6 +24,8 @@ export function createModal(core, baseUrl, config) {
     const modal = document.createElement("div");
     modal.style.cssText =
       "position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;";
+
+    currentModal = modal;
 
     const content = document.createElement("div");
     content.style.cssText =
@@ -44,7 +45,10 @@ export function createModal(core, baseUrl, config) {
     closeBtn.style.cssText =
       "background:none;border:none;font-size:24px;cursor:pointer;padding:0;width:32px;height:32px;";
     closeBtn.onclick = function () {
-      modal.remove();
+      if (currentModal) {
+        currentModal.remove();
+        currentModal = null;
+      }
     };
     header.appendChild(closeBtn);
 
@@ -74,7 +78,7 @@ export function createModal(core, baseUrl, config) {
     body.style.cssText = "padding:20px;overflow-y:auto;flex:1;";
 
     if (currentTab === "performance") {
-      body.innerHTML = renderPerformanceTab(modal);
+      body.innerHTML = renderPerformanceTab();
       setTimeout(function () {
         startPerformanceMonitoring(modal);
       }, 100);
@@ -86,46 +90,54 @@ export function createModal(core, baseUrl, config) {
       body.innerHTML = renderErrorsTab(errors);
     }
 
-    // Footer
+    // Footer - тільки для errors табу
     const footer = document.createElement("div");
     footer.style.cssText =
       "padding:20px;border-top:1px solid #e5e7eb;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;";
 
-    const aiBtn = document.createElement("button");
-    aiBtn.innerHTML = "🤖 AI";
-    aiBtn.style.cssText =
-      "padding:8px 16px;background:#9333ea;color:#fff;border:none;border-radius:4px;cursor:pointer;";
-    aiBtn.onclick = function () {
-      aiBtn.disabled = true;
-      aiBtn.textContent = "⏳ Аналіз...";
-      core.analyzeWithAI().finally(function () {
-        aiBtn.disabled = false;
-        aiBtn.innerHTML = "🤖 AI";
-        modal.remove();
-        showModal();
-      });
-    };
+    if (currentTab === "errors") {
+      const aiBtn = document.createElement("button");
+      aiBtn.innerHTML = "🤖 AI";
+      aiBtn.style.cssText =
+        "padding:8px 16px;background:#9333ea;color:#fff;border:none;border-radius:4px;cursor:pointer;";
+      aiBtn.onclick = function () {
+        aiBtn.disabled = true;
+        aiBtn.textContent = "⏳ Аналіз...";
+        core.analyzeWithAI().finally(function () {
+          aiBtn.disabled = false;
+          aiBtn.innerHTML = "🤖 AI";
+          if (currentModal) {
+            currentModal.remove();
+            currentModal = null;
+          }
+          showModal();
+        });
+      };
 
-    const downloadBtn = document.createElement("button");
-    downloadBtn.textContent = "Завантажити звіт";
-    downloadBtn.style.cssText =
-      "padding:8px 16px;background:#3b82f6;color:#fff;border:none;border-radius:4px;cursor:pointer;";
-    downloadBtn.onclick = function () {
-      core.downloadReport();
-    };
+      const downloadBtn = document.createElement("button");
+      downloadBtn.textContent = "Завантажити звіт";
+      downloadBtn.style.cssText =
+        "padding:8px 16px;background:#3b82f6;color:#fff;border:none;border-radius:4px;cursor:pointer;";
+      downloadBtn.onclick = function () {
+        core.downloadReport();
+      };
 
-    const clearBtn = document.createElement("button");
-    clearBtn.textContent = "Очистити";
-    clearBtn.style.cssText =
-      "padding:8px 16px;background:#e5e7eb;border:none;border-radius:4px;cursor:pointer;";
-    clearBtn.onclick = function () {
-      core.clearErrors();
-      modal.remove();
-    };
+      const clearBtn = document.createElement("button");
+      clearBtn.textContent = "Очистити";
+      clearBtn.style.cssText =
+        "padding:8px 16px;background:#e5e7eb;border:none;border-radius:4px;cursor:pointer;";
+      clearBtn.onclick = function () {
+        core.clearErrors();
+        if (currentModal) {
+          currentModal.remove();
+          currentModal = null;
+        }
+      };
 
-    footer.appendChild(aiBtn);
-    footer.appendChild(downloadBtn);
-    footer.appendChild(clearBtn);
+      footer.appendChild(aiBtn);
+      footer.appendChild(downloadBtn);
+      footer.appendChild(clearBtn);
+    }
 
     content.appendChild(header);
     content.appendChild(tabs);
@@ -152,14 +164,17 @@ export function createModal(core, baseUrl, config) {
     return button;
   }
 
-  // Expose showModal globally
+  // Expose functions globally
   window.DevHelperShowModal = showModal;
+  window.DevHelperUpdateModal = updateModalContent;
 
   return {
     show: showModal,
+    update: updateModalContent,
   };
 }
 
+// Floating Button - створення кнопки для відкриття модалки
 export function createFloatingButton(modal) {
   const button = document.createElement("button");
   button.innerHTML = "🐛";

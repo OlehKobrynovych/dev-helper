@@ -32,9 +32,19 @@ export async function GET() {
 
   // Видаляємо import/export statements для браузера
   const cleanModule = (code: string) => {
-    return code
-      .replace(/^export\s+/gm, "")
-      .replace(/^import\s+.*?from\s+['"].*?['"];?\s*$/gm, "");
+    return (
+      code
+        // Видаляємо всі import statements (однорядкові та багаторядкові)
+        .replace(/import\s+{[^}]*}\s+from\s+['"][^'"]+['"];?\s*/g, "")
+        .replace(/import\s+[^;]+from\s+['"][^'"]+['"];?\s*/g, "")
+        .replace(/import\s+['"][^'"]+['"];?\s*/g, "")
+        // Видаляємо export перед function/const/let/var
+        .replace(/^export\s+(function|const|let|var)\s+/gm, "$1 ")
+        // Видаляємо export default
+        .replace(/^export\s+default\s+/gm, "")
+        // Видаляємо просто export
+        .replace(/^export\s+/gm, "")
+    );
   };
 
   const script = `
@@ -113,7 +123,9 @@ export async function GET() {
   return new NextResponse(script, {
     headers: {
       "Content-Type": "application/javascript",
-      "Cache-Control": "public, max-age=3600",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      Pragma: "no-cache",
+      Expires: "0",
     },
   });
 }

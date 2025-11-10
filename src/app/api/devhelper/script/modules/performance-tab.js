@@ -1,5 +1,5 @@
 // Performance Tab - моніторинг продуктивності
-export function renderPerformanceTab(modal) {
+export function renderPerformanceTab() {
   const html =
     '<div style="padding:16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;margin-bottom:16px;"><p style="margin:0;font-size:13px;color:#374151;">📊 <strong>Performance Monitor</strong> - Відстежує продуктивність вашого додатку в реальному часі</p></div>' +
     // FPS Monitor
@@ -22,8 +22,18 @@ export function startPerformanceMonitoring(modal) {
   let frameCount = 0;
   let lastTime = performance.now();
   let currentFPS = 0;
+  let animationId = null;
+  let memoryIntervalId = null;
 
   function measureFPS() {
+    if (!document.body.contains(modal)) {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+      }
+      return;
+    }
+
     frameCount++;
     const now = performance.now();
 
@@ -71,16 +81,22 @@ export function startPerformanceMonitoring(modal) {
       lastTime = now;
     }
 
-    if (document.body.contains(modal)) {
-      requestAnimationFrame(measureFPS);
-    }
+    animationId = requestAnimationFrame(measureFPS);
   }
 
-  requestAnimationFrame(measureFPS);
+  animationId = requestAnimationFrame(measureFPS);
 
   // Memory monitoring
   if (performance.memory) {
     function updateMemory() {
+      if (!document.body.contains(modal)) {
+        if (memoryIntervalId) {
+          clearInterval(memoryIntervalId);
+          memoryIntervalId = null;
+        }
+        return;
+      }
+
       const mem = performance.memory;
       const used = Math.round(mem.usedJSHeapSize / 1048576);
       const total = Math.round(mem.totalJSHeapSize / 1048576);
@@ -102,12 +118,10 @@ export function startPerformanceMonitoring(modal) {
           "Ліміт: " + limit + " MB • " + percent.toFixed(1) + "% використано";
 
       updateTips(currentFPS);
-
-      if (document.body.contains(modal)) {
-        setTimeout(updateMemory, 1000);
-      }
     }
+
     updateMemory();
+    memoryIntervalId = setInterval(updateMemory, 1000);
   }
 
   // Load metrics
@@ -176,7 +190,9 @@ export function startPerformanceMonitoring(modal) {
     if (details) {
       const isHidden = details.style.display === "none";
       details.style.display = isHidden ? "block" : "none";
-      event.target.textContent = isHidden ? "▲ Згорнути" : "▼ Детальніше";
+      window.event.target.textContent = isHidden
+        ? "▲ Згорнути"
+        : "▼ Детальніше";
     }
   };
 }
