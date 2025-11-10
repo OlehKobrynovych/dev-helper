@@ -266,9 +266,73 @@ function analyzeFunctions(jsFiles) {
   console.log("⚡ Used", usedFunctions.size, "functions");
 
   const unused = [];
-  allFunctions.forEach(function (_location, funcName) {
+
+  // Список популярних бібліотечних функцій для фільтрації
+  const libraryFunctions = new Set([
+    "$",
+    "jQuery",
+    "after",
+    "before",
+    "append",
+    "prepend",
+    "remove",
+    "hide",
+    "show",
+    "$t",
+    "$i18n",
+    "$router",
+    "$store",
+    "$emit",
+    "$on",
+    "$off",
+    "require",
+    "define",
+    "module",
+    "exports",
+    "$d",
+    "$f",
+    "$s",
+    "$c",
+    "$v",
+    "$e",
+    "$a",
+    "$b",
+    "$g",
+    "$h",
+    "$j",
+    "$k",
+    "$l",
+    "$m",
+    "$n",
+    "$o",
+    "$p",
+    "$q",
+    "$r",
+    "$u",
+    "$w",
+    "$x",
+    "$y",
+    "$z",
+  ]);
+
+  allFunctions.forEach(function (location, funcName) {
+    // Фільтруємо бібліотечні функції
+    if (libraryFunctions.has(funcName)) {
+      return;
+    }
+
+    // Фільтруємо функції з 1-2 символів (часто це бібліотеки)
+    if (funcName.length <= 2) {
+      return;
+    }
+
+    // Фільтруємо функції з node_modules
+    if (location.includes("node_modules")) {
+      return;
+    }
+
     if (!usedFunctions.has(funcName)) {
-      unused.push(funcName);
+      unused.push({ name: funcName, location: location });
     }
   });
 

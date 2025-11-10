@@ -241,10 +241,18 @@ function displayResults(
       html +=
         '<div style="padding:8px;background:#eff6ff;border-radius:4px;margin-bottom:8px;font-size:11px;">';
       html +=
-        '<code style="font-family:monospace;color:#1e40af;">' +
-        fn +
+        '<div style="display:flex;justify-content:space-between;align-items:center;">';
+      html +=
+        '<code style="font-family:monospace;color:#1e40af;font-weight:bold;">' +
+        (fn.name || fn) +
         "()</code>";
-      html += "</div>";
+      if (fn.location) {
+        html +=
+          '<span style="color:#6b7280;font-size:10px;">📄 ' +
+          fn.location +
+          "</span>";
+      }
+      html += "</div></div>";
     });
     html += "</div></div>";
   }
