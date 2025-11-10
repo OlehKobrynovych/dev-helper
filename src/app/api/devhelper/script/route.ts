@@ -20,6 +20,10 @@ export async function GET() {
     join(modulesDir, "performance-tab.js"),
     "utf-8"
   );
+  const zipAnalyzerModule = readFileSync(
+    join(modulesDir, "zip-analyzer.js"),
+    "utf-8"
+  );
   const codeAnalysisTabModule = readFileSync(
     join(modulesDir, "code-analysis-tab.js"),
     "utf-8"
@@ -65,6 +69,11 @@ export async function GET() {
   // PERFORMANCE TAB MODULE - Моніторинг продуктивності
   // ============================================
   ${cleanModule(performanceTabModule)}
+  
+  // ============================================
+  // ZIP ANALYZER MODULE - Аналіз ZIP файлів
+  // ============================================
+  ${cleanModule(zipAnalyzerModule)}
   
   // ============================================
   // CODE ANALYSIS TAB MODULE - Аналіз коду

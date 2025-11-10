@@ -38,7 +38,7 @@ export function createDevHelperCore(config, baseUrl) {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const match = line.match(/(?:at\\s+.*?\\()?([^()]+):(\\d+):(\\d+)\\)?/);
-      if (match) {
+      if (match && match[1]) {
         const url = match[1].trim();
         const lineNumber = parseInt(match[2], 10);
         const columnNumber = parseInt(match[3], 10);
