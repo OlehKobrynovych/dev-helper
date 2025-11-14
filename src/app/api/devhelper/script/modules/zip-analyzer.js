@@ -28,6 +28,7 @@ export function analyzeZipProject(zipData) {
           const variableAnalysis = analyzeVariables(jsFiles);
           const imageAnalysis = analyzeImages(imageFiles, jsFiles, cssFiles);
           const duplicateFunctions = findDuplicateFunctions(jsFiles);
+          const apiRoutes = analyzeAPIRoutes(jsFiles);
 
           resolve({
             unusedCSS: cssAnalysis.unused,
@@ -35,6 +36,7 @@ export function analyzeZipProject(zipData) {
             unusedVariables: variableAnalysis.unused,
             unusedImages: imageAnalysis.unused,
             duplicateFunctions: duplicateFunctions,
+            apiRoutes: apiRoutes,
             stats: {
               cssFilesAnalyzed: cssFiles.length,
               jsFilesAnalyzed: jsFiles.length,
@@ -600,6 +602,369 @@ function calculateSimilarity(str1, str2) {
   }
 
   return matches / maxLen;
+}
+
+function analyzeAPIRoutes(jsFiles) {
+  const routes = [];
+
+  jsFiles.forEach(function (file) {
+    const content = file.content;
+
+    // 1. Next.js API Routes: export async function GET(request)
+    const nextApiMatches = content.matchAll(
+      /export\s+(?:async\s+)?function\s+(GET|POST|PUT|DELETE|PATCH)\s*\(/gi
+    );
+    for (const match of nextApiMatches) {
+      const method = match[1].toUpperCase();
+      const path = extractNextJSPath(file.name);
+      const lineNum = content.substring(0, match.index).split("\n").length;
+      const params = extractRouteParamsFromContent(content, match.index);
+      routes.push({
+        method: method,
+        path: path,
+        file: file.name,
+        line: lineNum,
+        params: params,
+      });
+    }
+
+    // 2. Express.js стиль: app.get('/api/users', ...) або router.post(...)
+    const expressMatches = content.matchAll(
+      /(?:app|router)\.(get|post|put|delete|patch)\s*\(\s*['"`]([^'"`]+)['"`]/gi
+    );
+    for (const match of expressMatches) {
+      const method = match[1].toUpperCase();
+      const path = match[2];
+      const lineNum = content.substring(0, match.index).split("\n").length;
+      const params = extractRouteParamsFromContent(content, match.index);
+      routes.push({
+        method: method,
+        path: path,
+        file: file.name,
+        line: lineNum,
+        params: params,
+      });
+    }
+
+    // 3. Fetch викли: fetch('/api/users') або fetch(`/api/${id}`)
+    // Шукаємо всі fetch виклики
+    const fetchMatches = content.matchAll(
+      /\bfetch\s*\(\s*['"`]([^'"`]+)['"`]/gi
+    );
+    for (const match of fetchMatches) {
+      const path = match[1];
+      const lineNum = content.substring(0, match.index).split("\n").length;
+
+      // Шукаємо метод в наступних 200 символах
+      const contextAfter = content.substring(match.index, match.index + 200);
+      const methodMatch = contextAfter.match(
+        /method\s*:\s*['"`]([^'"`]+)['"`]/i
+      );
+      const method = methodMatch ? methodMatch[1].toUpperCase() : "GET";
+
+      const params = extractFetchParamsFromContent(content, match.index);
+      routes.push({
+        method: method,
+        path: path,
+        file: file.name,
+        line: lineNum,
+        params: params,
+        type: "client",
+      });
+    }
+
+    // 4. Axios прямі методи: axios.get('/api/users') або axios.post(...)
+    const axiosDirectMatches = content.matchAll(
+      /\baxios\.(get|post|put|delete|patch)\s*\(\s*['"`]([^'"`]+)['"`]/gi
+    );
+    for (const match of axiosDirectMatches) {
+      const method = match[1].toUpperCase();
+      const path = match[2];
+      const lineNum = content.substring(0, match.index).split("\n").length;
+      const params = extractAxiosParamsFromContent(content, match.index);
+      routes.push({
+        method: method,
+        path: path,
+        file: file.name,
+        line: lineNum,
+        params: params,
+        type: "client",
+      });
+    }
+
+    // 5. Axios конфіг: axios({ method: 'POST', url: '/api/users' })
+    const axiosConfigMatches = content.matchAll(
+      /\baxios\s*\(\s*\{[^}]*?(?:method\s*:\s*['"`]([^'"`]+)['"`])[^}]*?(?:url\s*:\s*['"`]([^'"`]+)['"`])|(?:url\s*:\s*['"`]([^'"`]+)['"`])[^}]*?(?:method\s*:\s*['"`]([^'"`]+)['"`])/gis
+    );
+    for (const match of axiosConfigMatches) {
+      const method = (match[1] || match[4] || "GET").toUpperCase();
+      const path = match[2] || match[3];
+      if (path) {
+        const lineNum = content.substring(0, match.index).split("\n").length;
+        const params = extractAxiosParamsFromContent(content, match.index);
+        routes.push({
+          method: method,
+          path: path,
+          file: file.name,
+          line: lineNum,
+          params: params,
+          type: "client",
+        });
+      }
+    }
+
+    // 6. axiosInterceptor.get або інші кастомні інстанси
+    const customAxiosMatches = content.matchAll(
+      /\b([a-zA-Z_$][a-zA-Z0-9_$]*(?:Interceptor|Client|Api|Instance|Axios))\.(get|post|put|delete|patch)\s*\(\s*['"`]([^'"`]+)['"`]/gi
+    );
+    for (const match of customAxiosMatches) {
+      const method = match[2].toUpperCase();
+      const path = match[3];
+      const lineNum = content.substring(0, match.index).split("\n").length;
+      const params = extractAxiosParamsFromContent(content, match.index);
+      routes.push({
+        method: method,
+        path: path,
+        file: file.name,
+        line: lineNum,
+        params: params,
+        type: "client",
+      });
+    }
+  });
+
+  // Групуємо роути за шляхом та методом
+  const groupedRoutes = {};
+  routes.forEach(function (route) {
+    const key = route.method + " " + route.path;
+    if (!groupedRoutes[key]) {
+      groupedRoutes[key] = {
+        method: route.method,
+        path: route.path,
+        files: [],
+        params: route.params,
+        type: route.type,
+      };
+    }
+
+    const fileInfo = route.file + (route.line ? ":" + route.line : "");
+    if (groupedRoutes[key].files.indexOf(fileInfo) === -1) {
+      groupedRoutes[key].files.push(fileInfo);
+    }
+
+    // Об'єднуємо параметри з різних файлів
+    if (route.params) {
+      if (!groupedRoutes[key].params) {
+        groupedRoutes[key].params = route.params;
+      } else {
+        Object.keys(route.params).forEach(function (paramType) {
+          if (route.params[paramType]) {
+            if (!groupedRoutes[key].params[paramType]) {
+              groupedRoutes[key].params[paramType] = [];
+            }
+            route.params[paramType].forEach(function (param) {
+              if (groupedRoutes[key].params[paramType].indexOf(param) === -1) {
+                groupedRoutes[key].params[paramType].push(param);
+              }
+            });
+          }
+        });
+      }
+    }
+  });
+
+  const result = Object.values(groupedRoutes);
+  console.log("🌐 Found", result.length, "API routes");
+  return result;
+}
+
+function extractNextJSPath(fileName) {
+  // Конвертуємо шлях файлу Next.js в API роут
+  // Наприклад: src/app/api/users/route.ts -> /api/users
+  const match = fileName.match(/\/api\/(.+?)\/route\.(js|ts|jsx|tsx)$/);
+  if (match) {
+    return "/api/" + match[1];
+  }
+  // Для pages/api
+  const pagesMatch = fileName.match(/\/pages\/api\/(.+?)\.(js|ts|jsx|tsx)$/);
+  if (pagesMatch) {
+    return "/api/" + pagesMatch[1];
+  }
+  return fileName;
+}
+
+function extractRouteParamsFromContent(content, startIndex) {
+  const params = {
+    body: [],
+    query: [],
+    headers: [],
+  };
+
+  // Беремо контекст 1000 символів після початку функції
+  const context = content.substring(startIndex, startIndex + 1000);
+
+  // Body параметри: req.body.username, request.json(), await request.json()
+  const bodyMatches = context.matchAll(
+    /(?:req\.body|request\.json\(\)|await\s+request\.json\(\))\s*\.\s*([a-zA-Z_$][a-zA-Z0-9_$]*)/g
+  );
+  for (const match of bodyMatches) {
+    if (params.body.indexOf(match[1]) === -1) {
+      params.body.push(match[1]);
+    }
+  }
+
+  // Деструктуризація body: const { username, password } = req.body або await request.json()
+  const destructMatches = context.matchAll(
+    /const\s*\{\s*([^}]+)\}\s*=\s*(?:await\s+)?(?:req\.body|request\.json\(\)|body)/g
+  );
+  for (const match of destructMatches) {
+    const vars = match[1].split(",");
+    vars.forEach(function (v) {
+      const varName = v.trim().split(":")[0].trim();
+      if (varName && params.body.indexOf(varName) === -1) {
+        params.body.push(varName);
+      }
+    });
+  }
+
+  // Query параметри: req.query.page, searchParams.get('page'), params.get('id')
+  const queryMatches = context.matchAll(
+    /(?:req\.query|searchParams|params)\.(?:get\s*\(\s*['"`]([^'"`]+)['"`]\)|([a-zA-Z_$][a-zA-Z0-9_$]*))/g
+  );
+  for (const match of queryMatches) {
+    const paramName = match[1] || match[2];
+    if (paramName && params.query.indexOf(paramName) === -1) {
+      params.query.push(paramName);
+    }
+  }
+
+  // Headers: req.headers.authorization, headers.get('Authorization')
+  const headerMatches = context.matchAll(
+    /(?:req\.)?headers\.(?:get\s*\(\s*['"`]([^'"`]+)['"`]\)|([a-zA-Z_$][a-zA-Z0-9_$-]*))/g
+  );
+  for (const match of headerMatches) {
+    const headerName = match[1] || match[2];
+    if (headerName && params.headers.indexOf(headerName) === -1) {
+      params.headers.push(headerName);
+    }
+  }
+
+  return params;
+}
+
+function extractFetchParamsFromContent(content, startIndex) {
+  const params = {
+    body: [],
+    query: [],
+    headers: [],
+  };
+
+  // Беремо контекст 500 символів після fetch виклику
+  const context = content.substring(startIndex, startIndex + 500);
+
+  // body: JSON.stringify({ username, password }) або body: formData
+  const bodyStringifyMatches = context.matchAll(
+    /body\s*:\s*JSON\.stringify\s*\(\s*\{([^}]+)\}/g
+  );
+  for (const match of bodyStringifyMatches) {
+    const vars = match[1].split(",");
+    vars.forEach(function (v) {
+      const varName = v.trim().split(":")[0].trim();
+      if (varName && params.body.indexOf(varName) === -1) {
+        params.body.push(varName);
+      }
+    });
+  }
+
+  // body: { key: value }
+  const bodyObjectMatches = context.matchAll(/body\s*:\s*\{([^}]+)\}/g);
+  for (const match of bodyObjectMatches) {
+    if (!match[1].includes("JSON.stringify")) {
+      const vars = match[1].split(",");
+      vars.forEach(function (v) {
+        const varName = v.trim().split(":")[0].trim();
+        if (varName && params.body.indexOf(varName) === -1) {
+          params.body.push(varName);
+        }
+      });
+    }
+  }
+
+  // headers: { 'Content-Type': '...', 'Authorization': token }
+  const headerMatches = context.matchAll(/headers\s*:\s*\{([^}]+)\}/g);
+  for (const match of headerMatches) {
+    const headerLines = match[1].split(",");
+    headerLines.forEach(function (line) {
+      const headerMatch = line.match(/['"`]([a-zA-Z-]+)['"`]\s*:/);
+      if (headerMatch && params.headers.indexOf(headerMatch[1]) === -1) {
+        params.headers.push(headerMatch[1]);
+      }
+    });
+  }
+
+  return params;
+}
+
+function extractAxiosParamsFromContent(content, startIndex) {
+  const params = {
+    body: [],
+    query: [],
+    headers: [],
+  };
+
+  // Беремо контекст 500 символів після axios виклику
+  const context = content.substring(startIndex, startIndex + 500);
+
+  // data: { username, password } або другий параметр axios.post('/api', { data })
+  const dataMatches = context.matchAll(
+    /(?:data\s*:\s*\{([^}]+)\}|\{\s*([^}]+)\s*\})/g
+  );
+  for (const match of dataMatches) {
+    const dataContent = match[1] || match[2];
+    if (dataContent) {
+      const vars = dataContent.split(",");
+      vars.forEach(function (v) {
+        const varName = v.trim().split(":")[0].trim();
+        // Фільтруємо ключові слова
+        if (
+          varName &&
+          varName !== "method" &&
+          varName !== "url" &&
+          varName !== "headers" &&
+          varName !== "params" &&
+          params.body.indexOf(varName) === -1
+        ) {
+          params.body.push(varName);
+        }
+      });
+    }
+  }
+
+  // params: { page, limit } - query параметри
+  const paramsMatches = context.matchAll(/params\s*:\s*\{([^}]+)\}/g);
+  for (const match of paramsMatches) {
+    const vars = match[1].split(",");
+    vars.forEach(function (v) {
+      const varName = v.trim().split(":")[0].trim();
+      if (varName && params.query.indexOf(varName) === -1) {
+        params.query.push(varName);
+      }
+    });
+  }
+
+  // headers: { 'Content-Type': '...', Authorization: token }
+  const headerMatches = context.matchAll(/headers\s*:\s*\{([^}]+)\}/g);
+  for (const match of headerMatches) {
+    const headerLines = match[1].split(",");
+    headerLines.forEach(function (line) {
+      const headerMatch = line.match(/['"`]?([a-zA-Z-]+)['"`]?\s*:/);
+      if (headerMatch && params.headers.indexOf(headerMatch[1]) === -1) {
+        params.headers.push(headerMatch[1]);
+      }
+    });
+  }
+
+  return params;
 }
 
 async function extractZipFiles(view) {

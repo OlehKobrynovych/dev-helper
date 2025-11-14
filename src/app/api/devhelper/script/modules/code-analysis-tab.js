@@ -72,6 +72,7 @@ function analyzeProjectFiles(zipData, resultsDiv, uploadBtn) {
         results.unusedVariables,
         results.unusedImages || [],
         results.duplicateFunctions || [],
+        results.apiRoutes || [],
         results.stats,
         resultsDiv
       );
@@ -102,11 +103,13 @@ function displayResults(
   unusedVariables,
   unusedImages,
   duplicateFunctions,
+  apiRoutes,
   stats,
   resultsDiv
 ) {
   unusedImages = unusedImages || [];
   duplicateFunctions = duplicateFunctions || [];
+  apiRoutes = apiRoutes || [];
 
   let html =
     '<div style="border:1px solid #e9d5ff;border-radius:8px;padding:16px;background:#faf5ff;margin-bottom:16px;">';
@@ -388,6 +391,126 @@ function displayResults(
       });
 
       html += "</div></div>";
+    });
+
+    html += "</div></div>";
+  }
+
+  // API Routes
+  if (apiRoutes.length > 0) {
+    html +=
+      '<div style="border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin-bottom:16px;">';
+    html +=
+      '<h3 style="margin:0 0 12px 0;font-size:14px;font-weight:bold;color:#8b5cf6;">🌐 API Роути (' +
+      apiRoutes.length +
+      ")</h3>";
+    html +=
+      '<p style="margin:0 0 12px 0;font-size:11px;color:#6b7280;">Знайдені API ендпоінти та їх параметри</p>';
+    html += '<div style="max-height:400px;overflow-y:auto;">';
+
+    // Групуємо за методами
+    const methodColors = {
+      GET: { bg: "#dbeafe", border: "#3b82f6", text: "#1e40af" },
+      POST: { bg: "#d1fae5", border: "#10b981", text: "#065f46" },
+      PUT: { bg: "#fef3c7", border: "#f59e0b", text: "#92400e" },
+      DELETE: { bg: "#fee2e2", border: "#ef4444", text: "#991b1b" },
+      PATCH: { bg: "#e9d5ff", border: "#a855f7", text: "#6b21a8" },
+    };
+
+    apiRoutes.forEach(function (route) {
+      const colors = methodColors[route.method] || methodColors.GET;
+
+      html +=
+        '<div style="padding:12px;background:' +
+        colors.bg +
+        ";border-left:3px solid " +
+        colors.border +
+        ';border-radius:4px;margin-bottom:12px;">';
+
+      // Метод та шлях
+      html +=
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">';
+      html +=
+        '<span style="background:' +
+        colors.border +
+        ';color:#fff;padding:4px 8px;border-radius:4px;font-size:10px;font-weight:bold;">' +
+        route.method +
+        "</span>";
+      html +=
+        '<code style="font-family:monospace;color:' +
+        colors.text +
+        ';font-weight:bold;font-size:12px;">' +
+        route.path +
+        "</code>";
+      if (route.type === "client") {
+        html +=
+          '<span style="background:#6b7280;color:#fff;padding:2px 6px;border-radius:3px;font-size:9px;">CLIENT</span>';
+      }
+      html += "</div>";
+
+      // Параметри
+      if (route.params) {
+        const hasParams =
+          (route.params.body && route.params.body.length > 0) ||
+          (route.params.query && route.params.query.length > 0) ||
+          (route.params.headers && route.params.headers.length > 0);
+
+        if (hasParams) {
+          html +=
+            '<div style="margin-top:8px;padding-top:8px;border-top:1px solid #e5e7eb;">';
+
+          // Body параметри
+          if (route.params.body && route.params.body.length > 0) {
+            html +=
+              '<div style="margin-bottom:6px;"><span style="font-size:10px;color:#6b7280;font-weight:bold;">📦 Body:</span> ';
+            html +=
+              '<span style="font-size:10px;color:' +
+              colors.text +
+              ';">' +
+              route.params.body.join(", ") +
+              "</span></div>";
+          }
+
+          // Query параметри
+          if (route.params.query && route.params.query.length > 0) {
+            html +=
+              '<div style="margin-bottom:6px;"><span style="font-size:10px;color:#6b7280;font-weight:bold;">🔍 Query:</span> ';
+            html +=
+              '<span style="font-size:10px;color:' +
+              colors.text +
+              ';">' +
+              route.params.query.join(", ") +
+              "</span></div>";
+          }
+
+          // Headers
+          if (route.params.headers && route.params.headers.length > 0) {
+            html +=
+              '<div style="margin-bottom:6px;"><span style="font-size:10px;color:#6b7280;font-weight:bold;">📋 Headers:</span> ';
+            html +=
+              '<span style="font-size:10px;color:' +
+              colors.text +
+              ';">' +
+              route.params.headers.join(", ") +
+              "</span></div>";
+          }
+
+          html += "</div>";
+        }
+      }
+
+      // Файли де використовується
+      if (route.files && route.files.length > 0) {
+        html += '<div style="margin-top:8px;font-size:10px;color:#6b7280;">';
+        html += "📄 Файли: ";
+        html += route.files.slice(0, 3).join(", ");
+        if (route.files.length > 3) {
+          html += " та ще " + (route.files.length - 3);
+        }
+        html += "</div>";
+      }
+
+      html += "</div>";
     });
 
     html += "</div></div>";
