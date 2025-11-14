@@ -29,6 +29,8 @@ export function analyzeZipProject(zipData) {
           const imageAnalysis = analyzeImages(imageFiles, jsFiles, cssFiles);
           const duplicateFunctions = findDuplicateFunctions(jsFiles);
           const apiRoutes = analyzeAPIRoutes(jsFiles);
+          const fileTypesInfo = analyzeFileTypes(files);
+          const pagesInfo = analyzePages(files);
 
           resolve({
             unusedCSS: cssAnalysis.unused,
@@ -37,6 +39,8 @@ export function analyzeZipProject(zipData) {
             unusedImages: imageAnalysis.unused,
             duplicateFunctions: duplicateFunctions,
             apiRoutes: apiRoutes,
+            fileTypes: fileTypesInfo,
+            pages: pagesInfo,
             stats: {
               cssFilesAnalyzed: cssFiles.length,
               jsFilesAnalyzed: jsFiles.length,
@@ -44,6 +48,7 @@ export function analyzeZipProject(zipData) {
               totalFunctions: functionAnalysis.total,
               totalVariables: variableAnalysis.total,
               totalImages: imageAnalysis.total,
+              totalFiles: files.length,
             },
           });
         })
@@ -1066,4 +1071,60 @@ async function extractZipFiles(view) {
 
   console.log("✅ Extracted", files.length, "files");
   return files;
+}
+
+function analyzeFileTypes(files) {
+  const fileTypes = {};
+
+  files.forEach(function (file) {
+    if (file.name.includes("node_modules/")) return;
+    if (file.name.includes(".git/")) return;
+
+    const ext = file.name.split(".").pop();
+    if (ext && ext.length < 10) {
+      fileTypes[ext] = (fileTypes[ext] || 0) + 1;
+    }
+  });
+
+  return fileTypes;
+}
+
+function analyzePages(files) {
+  const pages = [];
+
+  files.forEach(function (file) {
+    if (file.name.includes("node_modules/")) return;
+    if (file.name.includes(".git/")) return;
+
+    // Next.js App Router: app/**/page.tsx
+    if (file.name.match(/app\/.*\/page\.(jsx?|tsx?)$/i)) {
+      pages.push({
+        path: file.name,
+        type: "Next.js App Router",
+      });
+    }
+    // Next.js Pages Router: pages/**/*.tsx
+    else if (file.name.match(/pages\/.*\.(jsx?|tsx?)$/i)) {
+      pages.push({
+        path: file.name,
+        type: "Next.js Pages Router",
+      });
+    }
+    // Vue/Nuxt: pages/**/*.vue
+    else if (file.name.match(/pages\/.*\.vue$/i)) {
+      pages.push({
+        path: file.name,
+        type: "Vue/Nuxt",
+      });
+    }
+    // Angular: *.component.ts
+    else if (file.name.match(/\.component\.(ts|js)$/i)) {
+      pages.push({
+        path: file.name,
+        type: "Angular Component",
+      });
+    }
+  });
+
+  return pages;
 }

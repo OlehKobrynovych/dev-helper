@@ -1,4 +1,4 @@
-// Code Analysis Tab - аналіз невикористаного коду з ZIP файлу
+﻿// Code Analysis Tab - аналіз невикористаного коду з ZIP файлу
 import { analyzeZipProject } from "./zip-analyzer.js";
 
 export function renderCodeAnalysisTab(baseUrl, config) {
@@ -73,6 +73,8 @@ function analyzeProjectFiles(zipData, resultsDiv, uploadBtn) {
         results.unusedImages || [],
         results.duplicateFunctions || [],
         results.apiRoutes || [],
+        results.fileTypes || {},
+        results.pages || [],
         results.stats,
         resultsDiv
       );
@@ -104,12 +106,16 @@ function displayResults(
   unusedImages,
   duplicateFunctions,
   apiRoutes,
+  fileTypes,
+  pages,
   stats,
   resultsDiv
 ) {
   unusedImages = unusedImages || [];
   duplicateFunctions = duplicateFunctions || [];
   apiRoutes = apiRoutes || [];
+  fileTypes = fileTypes || {};
+  pages = pages || [];
 
   let html =
     '<div style="border:1px solid #e9d5ff;border-radius:8px;padding:16px;background:#faf5ff;margin-bottom:16px;">';
@@ -510,6 +516,84 @@ function displayResults(
         html += "</div>";
       }
 
+      html += "</div>";
+    });
+
+    html += "</div></div>";
+  }
+
+  // Типи файлів
+  if (Object.keys(fileTypes).length > 0) {
+    html +=
+      '<div style="border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin-bottom:16px;">';
+    html +=
+      '<h3 style="margin:0 0 12px 0;font-size:14px;font-weight:bold;color:#374151;">📄 Типи файлів</h3>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
+
+    const fileTypeIcons = {
+      js: "🟨",
+      jsx: "⚛️",
+      ts: "🔷",
+      tsx: "⚛️",
+      vue: "💚",
+      css: "🎨",
+      scss: "🎨",
+      json: "📋",
+      md: "📝",
+      html: "🌐",
+      png: "🖼️",
+      jpg: "🖼️",
+      svg: "🎨",
+    };
+
+    Object.entries(fileTypes)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 15)
+      .forEach(function ([ext, count]) {
+        const icon = fileTypeIcons[ext] || "📄";
+        html +=
+          '<div style="background:#f3f4f6;padding:8px 12px;border-radius:6px;font-size:11px;">';
+        html +=
+          "<span>" +
+          icon +
+          " ." +
+          ext +
+          '</span> <strong style="color:#3b82f6;">' +
+          count +
+          "</strong>";
+        html += "</div>";
+      });
+
+    html += "</div></div>";
+  }
+
+  // Сторінки
+  if (pages.length > 0) {
+    html +=
+      '<div style="border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin-bottom:16px;">';
+    html +=
+      '<h3 style="margin:0 0 12px 0;font-size:14px;font-weight:bold;color:#10b981;">📄 Сторінки (' +
+      pages.length +
+      ")</h3>";
+    html += '<div style="max-height:300px;overflow-y:auto;">';
+
+    pages.forEach(function (page) {
+      const fileName = page.path.split("/").pop();
+      const path = page.path.substring(0, page.path.lastIndexOf("/"));
+
+      html +=
+        '<div style="padding:8px;background:#ecfdf5;border-radius:4px;margin-bottom:6px;font-size:11px;">';
+      html +=
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">';
+      html +=
+        '<div style="font-weight:bold;color:#059669;">' + fileName + "</div>";
+      html +=
+        '<span style="background:#10b981;color:#fff;padding:2px 6px;border-radius:10px;font-size:9px;">' +
+        page.type +
+        "</span>";
+      html += "</div>";
+      html +=
+        '<div style="color:#6b7280;font-size:10px;">📁 ' + path + "</div>";
       html += "</div>";
     });
 
