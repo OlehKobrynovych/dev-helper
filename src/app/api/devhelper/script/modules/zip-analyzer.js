@@ -1095,26 +1095,57 @@ function analyzePages(files) {
   files.forEach(function (file) {
     if (file.name.includes("node_modules/")) return;
     if (file.name.includes(".git/")) return;
+    if (file.name.includes("/.")) return; // Пропускаємо приховані файли
 
     // Next.js App Router: app/**/page.tsx
-    if (file.name.match(/app\/.*\/page\.(jsx?|tsx?)$/i)) {
+    if (file.name.match(/\/app\/.*\/page\.(jsx?|tsx?)$/i)) {
       pages.push({
         path: file.name,
         type: "Next.js App Router",
       });
     }
-    // Next.js Pages Router: pages/**/*.tsx
-    else if (file.name.match(/pages\/.*\.(jsx?|tsx?)$/i)) {
+    // Next.js Pages Router: pages/**/*.tsx (але не _app, _document, _error)
+    else if (
+      file.name.match(/\/pages\/.*\.(jsx?|tsx?)$/i) &&
+      !file.name.match(/\/((_app|_document|_error|api)\.(jsx?|tsx?)|api\/)/i)
+    ) {
       pages.push({
         path: file.name,
         type: "Next.js Pages Router",
       });
     }
+    // React Router: src/pages/**/*.tsx або src/views/**/*.tsx
+    else if (
+      file.name.match(/\/src\/(pages|views|screens|routes)\/.*\.(jsx?|tsx?)$/i)
+    ) {
+      pages.push({
+        path: file.name,
+        type: "React Page",
+      });
+    }
+    // React: компоненти які виглядають як сторінки (Home, About, Dashboard, тощо)
+    else if (
+      file.name.match(
+        /\/(Home|About|Dashboard|Profile|Login|Register|Contact|Settings|Admin|User|Product|Cart|Checkout|Detail|List|Index|Main)(Page)?\.(jsx?|tsx?)$/i
+      )
+    ) {
+      pages.push({
+        path: file.name,
+        type: "React Component",
+      });
+    }
     // Vue/Nuxt: pages/**/*.vue
-    else if (file.name.match(/pages\/.*\.vue$/i)) {
+    else if (file.name.match(/\/pages\/.*\.vue$/i)) {
       pages.push({
         path: file.name,
         type: "Vue/Nuxt",
+      });
+    }
+    // Vue: views/**/*.vue
+    else if (file.name.match(/\/views\/.*\.vue$/i)) {
+      pages.push({
+        path: file.name,
+        type: "Vue View",
       });
     }
     // Angular: *.component.ts
