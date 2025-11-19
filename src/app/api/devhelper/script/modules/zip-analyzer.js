@@ -719,8 +719,10 @@ function analyzeAPIRoutes(jsFiles) {
     }
 
     // 6. axiosInterceptor.get або інші кастомні інстанси
+    // Оновлений regex: підтримує api.get, http.post, request.put, client.delete
+    // та суфікси Service, Interceptor, Client, Api, Instance, Axios
     const customAxiosMatches = content.matchAll(
-      /\b([a-zA-Z_$][a-zA-Z0-9_$]*(?:Interceptor|Client|Api|Instance|Axios))\.(get|post|put|delete|patch)\s*\(\s*['"`]([^'"`]+)['"`]/gi
+      /\b((?:[a-zA-Z_$][a-zA-Z0-9_$]*)(?:Interceptor|Client|Api|Instance|Axios|Service)|api|http|request|client)\.(get|post|put|delete|patch)\s*\(\s*['"`]([^'"`]+)['"`]/gi
     );
     for (const match of customAxiosMatches) {
       const method = match[2].toUpperCase();
@@ -735,6 +737,46 @@ function analyzeAPIRoutes(jsFiles) {
         params: params,
         type: "client",
       });
+    }
+
+    // 7. useSWR hooks: useSWR('/api/user', fetcher)
+    const swrMatches = content.matchAll(
+      /\buseSWR\s*\(\s*['"`]([^'"`]+)['"`]/gi
+    );
+    for (const match of swrMatches) {
+      const path = match[1];
+      const lineNum = content.substring(0, match.index).split("\n").length;
+      routes.push({
+        method: "GET", // SWR зазвичай використовується для GET запитів
+        path: path,
+        file: file.name,
+        line: lineNum,
+        params: null,
+        type: "client",
+      });
+    }
+
+    // 8. Custom Request Wrappers: fetchRequest("GET", "/api/url")
+    // Підтримує виклики де метод передається першим аргументом
+    const customWrapperMatches = content.matchAll(
+      /\b([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(\s*["'](GET|POST|PUT|DELETE|PATCH)["']\s*,\s*[`'"]([^`'"]+)[`'"]/gi
+    );
+    for (const match of customWrapperMatches) {
+      const method = match[2].toUpperCase();
+      const path = match[3];
+      const lineNum = content.substring(0, match.index).split("\n").length;
+      
+      // Фільтруємо якщо це не схоже на URL (занадто коротке або без слешів, хоча це евристика)
+      if (path.length > 1) {
+        routes.push({
+          method: method,
+          path: path,
+          file: file.name,
+          line: lineNum,
+          params: null,
+          type: "client",
+        });
+      }
     }
   });
 
